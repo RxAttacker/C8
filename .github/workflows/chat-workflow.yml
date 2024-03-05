@@ -1,0 +1,31 @@
+name: Chat Workflow
+
+on:
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created, edited]
+
+jobs:
+  update-chat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      
+      - name: Install JQ
+        run: sudo apt-get install jq
+
+      - name: Append message to chat log
+        run: |
+          ISSUE_BODY=$(jq -r .issue.body "$GITHUB_EVENT_PATH")
+          echo "Appending message to messages.json"
+          jq --arg msg "$ISSUE_BODY" '.messages += [$msg]' messages.json > temp.json && mv temp.json messages.json
+
+      - name: Commit and push if changed
+        run: |
+          git config --global user.name 'GitHub Actions Bot'
+          git config --global user.email 'actions@github.com'
+          git add messages.json
+          git commit -m "Update chat messages" || exit 0  # exit gracefully if no changes
+          git push
